@@ -1,0 +1,90 @@
+
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useApp } from '../../store/AppContext';
+import { Mail, Lock, ChevronRight, Eye, EyeOff } from 'lucide-react';
+
+const LoginScreen: React.FC = () => {
+  const navigate = useNavigate();
+  const { login } = useApp();
+  const [showPassword, setShowPassword] = useState(false);
+  const [formData, setFormData] = useState({ identifier: '', password: '' });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    // In a real app, we would validate and call an API
+    // For demo, we default to customer role or look at user selection
+    login('customer');
+    navigate('/');
+  };
+
+  return (
+    <div className="min-h-screen bg-[#0f0f0f] p-8 flex flex-col justify-center animate-in fade-in duration-500">
+      <div className="mb-10 text-center">
+        <div className="w-20 h-20 bg-orange-600 rounded-[28px] flex items-center justify-center font-black text-4xl text-white shadow-2xl shadow-orange-600/30 mx-auto mb-4 transform -rotate-6">C</div>
+        <h1 className="text-3xl font-black italic tracking-tighter">CHOPNEXTDOOR</h1>
+        <p className="text-zinc-500 text-sm mt-2">Welcome back to the neighborhood.</p>
+      </div>
+
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="space-y-3">
+          <div className="relative">
+            <Mail size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-600" />
+            <input 
+              type="text" 
+              placeholder="Email or Phone Number" 
+              className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl py-4 pl-12 pr-4 text-sm focus:outline-none focus:border-orange-500 transition-all text-white" 
+              value={formData.identifier}
+              onChange={(e) => setFormData({...formData, identifier: e.target.value})}
+              required
+            />
+          </div>
+          <div className="relative">
+            <Lock size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-600" />
+            <input 
+              type={showPassword ? 'text' : 'password'} 
+              placeholder="Password" 
+              className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl py-4 pl-12 pr-12 text-sm focus:outline-none focus:border-orange-500 transition-all text-white" 
+              value={formData.password}
+              onChange={(e) => setFormData({...formData, password: e.target.value})}
+              required
+            />
+            <button 
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-600"
+            >
+              {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
+          </div>
+        </div>
+
+        <div className="text-right">
+          <button type="button" className="text-orange-500 text-xs font-bold hover:underline">Forgot Password?</button>
+        </div>
+
+        <button 
+          type="submit"
+          className="w-full bg-white text-black py-5 rounded-2xl font-black text-base flex items-center justify-center space-x-2 shadow-xl hover:bg-orange-500 hover:text-white transition-all active:scale-95"
+        >
+          <span>Login Now</span>
+          <ChevronRight size={20} />
+        </button>
+      </form>
+
+      <div className="mt-10 text-center">
+        <p className="text-zinc-500 text-sm">
+          Don't have an account?{' '}
+          <button 
+            onClick={() => navigate('/auth/register')}
+            className="text-orange-500 font-bold hover:underline"
+          >
+            Register
+          </button>
+        </p>
+      </div>
+    </div>
+  );
+};
+
+export default LoginScreen;
