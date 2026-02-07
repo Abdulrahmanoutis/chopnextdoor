@@ -3,19 +3,30 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../../store/AppContext';
 import { Mail, Lock, ChevronRight, Eye, EyeOff } from 'lucide-react';
+import { authAPI, setAuthToken } from '../../services/api';
 
 const LoginScreen: React.FC = () => {
   const navigate = useNavigate();
   const { login } = useApp();
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({ identifier: '', password: '' });
+  const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // In a real app, we would validate and call an API
-    // For demo, we default to customer role or look at user selection
-    login('customer');
-    navigate('/');
+    setError(null);
+    setIsSubmitting(true);
+    try {
+      const data = await authAPI.login(formData.identifier, formData.password);
+      setAuthToken(data.token);
+      login('customer');
+      navigate('/');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Login failed');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -32,7 +43,7 @@ const LoginScreen: React.FC = () => {
             <Mail size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-600" />
             <input 
               type="text" 
-              placeholder="Email or Phone Number" 
+              placeholder="Username" 
               className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl py-4 pl-12 pr-4 text-sm focus:outline-none focus:border-orange-500 transition-all text-white" 
               value={formData.identifier}
               onChange={(e) => setFormData({...formData, identifier: e.target.value})}
@@ -65,12 +76,16 @@ const LoginScreen: React.FC = () => {
 
         <button 
           type="submit"
-          className="w-full bg-white text-black py-5 rounded-2xl font-black text-base flex items-center justify-center space-x-2 shadow-xl hover:bg-orange-500 hover:text-white transition-all active:scale-95"
+          disabled={isSubmitting}
+          className="w-full bg-white text-black py-5 rounded-2xl font-black text-base flex items-center justify-center space-x-2 shadow-xl hover:bg-orange-500 hover:text-white transition-all active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed"
         >
-          <span>Login Now</span>
+          <span>{isSubmitting ? 'Logging in...' : 'Login Now'}</span>
           <ChevronRight size={20} />
         </button>
       </form>
+      {error && (
+        <div className="mt-4 text-center text-sm text-red-400">{error}</div>
+      )}
 
       <div className="mt-10 text-center">
         <p className="text-zinc-500 text-sm">

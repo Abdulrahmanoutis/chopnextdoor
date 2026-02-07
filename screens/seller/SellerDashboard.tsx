@@ -1,13 +1,47 @@
 
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useApp } from '../../store/AppContext';
 import { useNavigate } from 'react-router-dom';
 import { ShoppingBag, TrendingUp, Users, PlusCircle, List, ArrowUpRight, ChevronRight, Bell } from 'lucide-react';
+import { orderAPI, OrderApi } from '../../services/api';
 
 const SellerDashboard: React.FC = () => {
   const navigate = useNavigate();
   const { kitchens } = useApp();
   const sellerData = kitchens[0]; // Assuming first kitchen is the logged-in seller for demo
+  const [orders, setOrders] = useState<OrderApi[]>([]);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    const loadOrders = async () => {
+      try {
+        const data = await orderAPI.listSeller();
+        if (!isMounted) return;
+        setOrders(data);
+      } catch (err) {
+        if (!isMounted) return;
+        setError(err instanceof Error ? err.message : 'Failed to load seller orders');
+      }
+    };
+    loadOrders();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const todayOrders = useMemo(() => {
+    const today = new Date().toDateString();
+    return orders.filter(o => new Date(o.created_at).toDateString() === today);
+  }, [orders]);
+
+  const earningsToday = useMemo(() => {
+    return todayOrders.reduce((sum, o) => sum + Number(o.total_amount || 0), 0);
+  }, [todayOrders]);
+
+  const recentOrders = useMemo(() => {
+    return orders.slice(0, 5);
+  }, [orders]);
 
   return (
     <div className="animate-in fade-in duration-500 p-5 space-y-8">
@@ -42,7 +76,7 @@ const SellerDashboard: React.FC = () => {
           </div>
           <div>
             <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Today's Orders</span>
-            <h2 className="text-2xl font-black">12</h2>
+            <h2 className="text-2xl font-black">{todayOrders.length}</h2>
           </div>
         </div>
 
@@ -55,7 +89,7 @@ const SellerDashboard: React.FC = () => {
           </div>
           <div>
             <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Earnings</span>
-            <h2 className="text-2xl font-black">₦24,500</h2>
+            <h2 className="text-2xl font-black">₦{earningsToday.toLocaleString()}</h2>
           </div>
         </div>
       </div>
@@ -120,21 +154,31 @@ const SellerDashboard: React.FC = () => {
           <button className="text-orange-500 text-[10px] font-bold uppercase">View All</button>
         </div>
         <div className="space-y-3">
-          {[
-            { id: '1277', name: 'James Obi', items: 'Masa x 2, Zobo x 1', time: '5m ago' },
-            { id: '1278', name: 'Sarah Ken', items: 'Grilled Chicken x 1', time: '12m ago' },
-          ].map(order => (
-            <div key={order.id} className="bg-zinc-900/50 p-4 rounded-2xl flex items-center justify-between border border-transparent hover:border-zinc-800">
-              <div className="flex items-center space-x-4">
-                <div className="w-10 h-10 bg-zinc-800 rounded-xl flex items-center justify-center font-bold text-xs text-zinc-500">{order.id}</div>
-                <div>
-                  <h4 className="font-bold text-sm">{order.name}</h4>
-                  <p className="text-[10px] text-zinc-500">{order.items}</p>
+          {error && (
+            <div className="text-sm text-red-400">{error}</div>
+          )}
+          {recentOrders.length === 0 && !error && (
+            <div className="text-sm text-zinc-500">No recent orders yet.</div>
+          )}
+          {recentOrders.map(order => {
+            const itemsText = (order.items || [])
+              .map(i => `${i.menu_item?.name ?? 'Item'} x ${i.quantity}`)
+              .join(', ');
+            return (
+              <div key={order.id} className="bg-zinc-900/50 p-4 rounded-2xl flex items-center justify-between border border-transparent hover:border-zinc-800">
+                <div className="flex items-center space-x-4">
+                  <div className="w-10 h-10 bg-zinc-800 rounded-xl flex items-center justify-center font-bold text-xs text-zinc-500">{order.order_number}</div>
+                  <div>
+                    <h4 className="font-bold text-sm">{order.customer_name || `Customer #${order.customer}`}</h4>
+                    <p className="text-[10px] text-zinc-500">{itemsText || 'No items'}</p>
+                  </div>
                 </div>
+                <span className="text-[10px] font-bold text-orange-500/60 italic">
+                  {new Date(order.created_at).toLocaleTimeString()}
+                </span>
               </div>
-              <span className="text-[10px] font-bold text-orange-500/60 italic">{order.time}</span>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </div>

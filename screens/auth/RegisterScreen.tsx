@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../../store/AppContext';
 import { User, Store, Mail, Lock, Phone, ChevronRight, CheckCircle2, ShieldCheck } from 'lucide-react';
+import { authAPI, setAuthToken } from '../../services/api';
 
 const RegisterScreen: React.FC = () => {
   const navigate = useNavigate();
@@ -10,16 +11,43 @@ const RegisterScreen: React.FC = () => {
   const [step, setStep] = useState(1); // 1: Info, 2: OTP
   const [role, setRole] = useState<'customer' | 'seller'>('customer');
   const [otp, setOtp] = useState(['', '', '', '']);
+  const [formData, setFormData] = useState({ email: '', phone: '', password: '' });
+  const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleRegister = (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    setStep(2);
+    setError(null);
+    setIsSubmitting(true);
+    try {
+      await authAPI.register({
+        username: formData.email,
+        email: formData.email,
+        password: formData.password,
+        phone: formData.phone,
+        user_type: role.toUpperCase() as 'CUSTOMER' | 'SELLER',
+      });
+      setStep(2);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Registration failed');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const handleVerify = () => {
-    // Simulated verification
-    login(role);
-    navigate('/');
+  const handleVerify = async () => {
+    setError(null);
+    setIsSubmitting(true);
+    try {
+      const data = await authAPI.login(formData.email, formData.password);
+      setAuthToken(data.token);
+      login(role);
+      navigate('/');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Verification/login failed');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleOtpChange = (index: number, value: string) => {
@@ -59,13 +87,17 @@ const RegisterScreen: React.FC = () => {
 
         <button 
           onClick={handleVerify}
-          className="w-full bg-orange-600 text-white py-5 rounded-2xl font-black text-base flex items-center justify-center space-x-2 shadow-xl shadow-orange-600/20 active:scale-95"
+          disabled={isSubmitting}
+          className="w-full bg-orange-600 text-white py-5 rounded-2xl font-black text-base flex items-center justify-center space-x-2 shadow-xl shadow-orange-600/20 active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed"
         >
-          <span>Verify & Finish</span>
+          <span>{isSubmitting ? 'Verifying...' : 'Verify & Finish'}</span>
           <CheckCircle2 size={20} />
         </button>
 
         <button onClick={() => setStep(1)} className="mt-6 text-zinc-500 text-sm font-bold">Resend Code</button>
+        {error && (
+          <div className="mt-4 text-center text-sm text-red-400">{error}</div>
+        )}
       </div>
     );
   }
@@ -98,15 +130,36 @@ const RegisterScreen: React.FC = () => {
         <div className="space-y-3">
           <div className="relative">
             <Mail size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-600" />
-            <input type="email" placeholder="Email Address" className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl py-4 pl-12 pr-4 text-sm focus:outline-none focus:border-orange-500 text-white" required />
+            <input 
+              type="email" 
+              placeholder="Email Address" 
+              className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl py-4 pl-12 pr-4 text-sm focus:outline-none focus:border-orange-500 text-white" 
+              value={formData.email}
+              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              required 
+            />
           </div>
           <div className="relative">
             <Phone size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-600" />
-            <input type="tel" placeholder="Phone Number" className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl py-4 pl-12 pr-4 text-sm focus:outline-none focus:border-orange-500 text-white" required />
+            <input 
+              type="tel" 
+              placeholder="Phone Number" 
+              className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl py-4 pl-12 pr-4 text-sm focus:outline-none focus:border-orange-500 text-white" 
+              value={formData.phone}
+              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+              required 
+            />
           </div>
           <div className="relative">
             <Lock size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-600" />
-            <input type="password" placeholder="Create Password" className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl py-4 pl-12 pr-4 text-sm focus:outline-none focus:border-orange-500 text-white" required />
+            <input 
+              type="password" 
+              placeholder="Create Password" 
+              className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl py-4 pl-12 pr-4 text-sm focus:outline-none focus:border-orange-500 text-white" 
+              value={formData.password}
+              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+              required 
+            />
           </div>
         </div>
 
@@ -119,12 +172,16 @@ const RegisterScreen: React.FC = () => {
 
         <button 
           type="submit"
-          className="w-full bg-white text-black py-5 rounded-2xl font-black text-base flex items-center justify-center space-x-2 shadow-xl hover:bg-orange-500 hover:text-white transition-all active:scale-95"
+          disabled={isSubmitting}
+          className="w-full bg-white text-black py-5 rounded-2xl font-black text-base flex items-center justify-center space-x-2 shadow-xl hover:bg-orange-500 hover:text-white transition-all active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed"
         >
-          <span>Continue to Verify</span>
+          <span>{isSubmitting ? 'Submitting...' : 'Continue to Verify'}</span>
           <ChevronRight size={20} />
         </button>
       </form>
+      {error && (
+        <div className="mt-4 text-center text-sm text-red-400">{error}</div>
+      )}
 
       <div className="mt-10 text-center">
         <p className="text-zinc-500 text-sm">

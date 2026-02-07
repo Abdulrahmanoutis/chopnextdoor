@@ -1,15 +1,47 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useApp } from '../store/AppContext';
 import { ChevronLeft, Star, Clock, MapPin, Check, Plus, MessageCircle, ShoppingCart } from 'lucide-react';
+import { menuAPI, MenuItemApi } from '../services/api';
+import { MenuItem } from '../types';
 
 const KitchenProfile: React.FC = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { kitchens, followingIds, toggleFollow, addToCart, cart } = useApp();
   const [activeTab, setActiveTab] = useState<'menu' | 'reviews' | 'about'>('menu');
+  const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
+  const [menuError, setMenuError] = useState<string | null>(null);
 
   const kitchen = kitchens.find(k => k.id === id);
+
+  useEffect(() => {
+    let isMounted = true;
+    const loadMenu = async () => {
+      if (!id) return;
+      setMenuError(null);
+      try {
+        const menus = await menuAPI.getByKitchen(id);
+        const items = menus?.[0]?.items ?? [];
+        const mapped = items.map((item: MenuItemApi): MenuItem => ({
+          id: item.id.toString(),
+          name: item.name,
+          price: Number(item.price),
+          description: item.description || '',
+          image: item.image || `https://picsum.photos/seed/menu-${item.id}/400`,
+        }));
+        if (!isMounted) return;
+        setMenuItems(mapped);
+      } catch (err) {
+        if (!isMounted) return;
+        setMenuError(err instanceof Error ? err.message : 'Failed to load menu');
+      }
+    };
+    loadMenu();
+    return () => {
+      isMounted = false;
+    };
+  }, [id]);
 
   if (!kitchen) return null;
 
@@ -112,36 +144,45 @@ const KitchenProfile: React.FC = () => {
         {activeTab === 'menu' && (
           <div className="mt-6 space-y-8 pb-10">
             {/* Today's Special Section */}
-            <div className="bg-orange-600/10 border border-orange-600/20 p-4 rounded-3xl relative overflow-hidden group">
-              <div className="absolute -right-4 -top-4 w-24 h-24 bg-orange-600/20 blur-3xl rounded-full"></div>
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="font-black text-orange-500 italic uppercase tracking-wider text-xs">Today's Special</h3>
-                <div className="bg-orange-600 text-[10px] font-black px-2 py-1 rounded-lg animate-pulse">
-                  ENDS IN 02:45:12
+            {menuItems.length > 0 ? (
+              <div className="bg-orange-600/10 border border-orange-600/20 p-4 rounded-3xl relative overflow-hidden group">
+                <div className="absolute -right-4 -top-4 w-24 h-24 bg-orange-600/20 blur-3xl rounded-full"></div>
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="font-black text-orange-500 italic uppercase tracking-wider text-xs">Today's Special</h3>
+                  <div className="bg-orange-600 text-[10px] font-black px-2 py-1 rounded-lg animate-pulse">
+                    ENDS IN 02:45:12
+                  </div>
                 </div>
-              </div>
-              <div className="flex space-x-4">
-                <img src={kitchen.menu[0].image} alt="" className="w-20 h-20 rounded-2xl object-cover shadow-lg" />
-                <div className="flex-1">
-                  <h4 className="font-bold text-white">{kitchen.menu[0].name}</h4>
-                  <p className="text-[10px] text-zinc-500 mt-1 line-clamp-2">{kitchen.menu[0].description}</p>
-                  <div className="flex justify-between items-center mt-2">
-                    <span className="font-black text-lg text-white">₦{kitchen.menu[0].price.toLocaleString()}</span>
-                    <button 
-                      onClick={() => addToCart({ ...kitchen.menu[0], quantity: 1, kitchenId: kitchen.id })}
-                      className="bg-orange-600 p-2 rounded-xl text-white shadow-lg shadow-orange-600/20 active:scale-90 transition-all"
-                    >
-                      <Plus size={18} />
-                    </button>
+                <div className="flex space-x-4">
+                  <img src={menuItems[0].image} alt="" className="w-20 h-20 rounded-2xl object-cover shadow-lg" />
+                  <div className="flex-1">
+                    <h4 className="font-bold text-white">{menuItems[0].name}</h4>
+                    <p className="text-[10px] text-zinc-500 mt-1 line-clamp-2">{menuItems[0].description}</p>
+                    <div className="flex justify-between items-center mt-2">
+                      <span className="font-black text-lg text-white">₦{menuItems[0].price.toLocaleString()}</span>
+                      <button 
+                        onClick={() => addToCart({ ...menuItems[0], quantity: 1, kitchenId: kitchen.id })}
+                        className="bg-orange-600 p-2 rounded-xl text-white shadow-lg shadow-orange-600/20 active:scale-90 transition-all"
+                      >
+                        <Plus size={18} />
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
+            ) : (
+              <div className="bg-zinc-900/60 border border-zinc-800 p-4 rounded-3xl text-sm text-zinc-400">
+                {menuError || 'No menu items available for this kitchen yet.'}
+              </div>
+            )}
 
             {/* Main Menu List */}
             <div className="space-y-6">
               <h3 className="font-bold text-lg">Main Menu</h3>
-              {kitchen.menu.map(item => (
+              {menuItems.length === 0 && (
+                <div className="text-sm text-zinc-500">{menuError || 'No menu items available.'}</div>
+              )}
+              {menuItems.map(item => (
                 <div key={item.id} className="flex items-center space-x-4 group">
                   <div className="w-20 h-20 rounded-2xl overflow-hidden flex-shrink-0 bg-zinc-800 border border-zinc-700">
                     <img src={item.image} alt={item.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />

@@ -3,12 +3,12 @@ import { useApp } from '../store/AppContext';
 import { ChevronRight, Mail, Lock, User, Store } from 'lucide-react';
 
 const AuthScreen: React.FC = () => {
-  const { setIsAuthenticated, userRole, setUserRole } = useApp();
+  const { login, userRole, setUserRole } = useApp();
   const [isLogin, setIsLogin] = useState(true);
 
   const handleAuth = (e: React.FormEvent) => {
     e.preventDefault();
-    setIsAuthenticated(true);
+    login(userRole);
   };
 
   return (

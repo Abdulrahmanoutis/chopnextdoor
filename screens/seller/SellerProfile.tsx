@@ -6,7 +6,7 @@ import { ChevronLeft, Camera, MapPin, Clock, CreditCard, Image as ImageIcon, Set
 
 const SellerProfile: React.FC = () => {
   const navigate = useNavigate();
-  const { setIsAuthenticated, kitchens } = useApp();
+  const { logout, kitchens } = useApp();
   const kitchen = kitchens[0]; // Assuming first kitchen is the seller's
 
   return (
@@ -92,7 +92,7 @@ const SellerProfile: React.FC = () => {
           </button>
           
           <button 
-            onClick={() => setIsAuthenticated(false)}
+            onClick={() => logout()}
             className="w-full flex items-center justify-center space-x-3 p-5 text-red-500/60 font-bold text-sm hover:text-red-500 transition-colors"
           >
             <LogOut size={18} />

@@ -1,12 +1,49 @@
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useApp } from '../../store/AppContext';
 import { ChevronLeft, Plus, Edit2, Trash2, Search, Filter } from 'lucide-react';
+import { menuAPI, MenuItemApi } from '../../services/api';
+import { MenuItem } from '../../types';
+import { useApp } from '../../store/AppContext';
 
 const MenuManagement: React.FC = () => {
   const navigate = useNavigate();
-  const { sellerMenu, deleteSellerMenuItem } = useApp();
+  const { kitchens } = useApp();
+  const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    let isMounted = true;
+    const loadMenu = async () => {
+      try {
+        const kitchenId = kitchens[0]?.id;
+        if (!kitchenId) {
+          throw new Error('No kitchen found for this seller');
+        }
+        const menus = await menuAPI.getByKitchen(kitchenId);
+        const items = menus?.[0]?.items ?? [];
+        const mapped = items.map((item: MenuItemApi): MenuItem => ({
+          id: item.id.toString(),
+          name: item.name,
+          price: Number(item.price),
+          description: item.description || '',
+          image: item.image || `https://picsum.photos/seed/menu-${item.id}/400`,
+        }));
+        if (!isMounted) return;
+        setMenuItems(mapped);
+      } catch (err) {
+        if (!isMounted) return;
+        setError(err instanceof Error ? err.message : 'Failed to load menu items');
+      } finally {
+        if (isMounted) setIsLoading(false);
+      }
+    };
+    loadMenu();
+    return () => {
+      isMounted = false;
+    };
+  }, [kitchens]);
 
   return (
     <div className="animate-in fade-in duration-500 pb-24">
@@ -55,7 +92,16 @@ const MenuManagement: React.FC = () => {
 
         {/* Menu Items List */}
         <div className="grid grid-cols-1 gap-4">
-          {sellerMenu.map((item) => (
+          {isLoading && (
+            <div className="text-sm text-zinc-500">Loading menu items...</div>
+          )}
+          {error && (
+            <div className="text-sm text-red-400">{error}</div>
+          )}
+          {!isLoading && !error && menuItems.length === 0 && (
+            <div className="text-sm text-zinc-500">No menu items yet.</div>
+          )}
+          {menuItems.map((item) => (
             <div key={item.id} className="bg-[#181818] border border-zinc-800 rounded-[32px] p-4 flex items-center space-x-4 group transition-all hover:bg-zinc-800/40">
               <div className="w-24 h-24 rounded-2xl overflow-hidden flex-shrink-0 bg-zinc-800 relative">
                 <img src={item.image} alt={item.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
@@ -72,7 +118,7 @@ const MenuManagement: React.FC = () => {
                       <Edit2 size={14} />
                     </button>
                     <button 
-                      onClick={() => deleteSellerMenuItem(item.id)}
+                      onClick={() => setMenuItems(prev => prev.filter(i => i.id !== item.id))}
                       className="text-zinc-600 hover:text-red-500 transition-colors"
                     >
                       <Trash2 size={14} />

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../store/AppContext';
 import { ChevronLeft, MapPin, Truck, ShoppingBag, CreditCard, Wallet, ChevronRight, Clock } from 'lucide-react';
+import { menuAPI, orderAPI } from '../services/api';
 
 const CheckoutScreen: React.FC = () => {
   const navigate = useNavigate();
@@ -9,17 +10,62 @@ const CheckoutScreen: React.FC = () => {
   const [method, setMethod] = useState<'delivery' | 'pickup'>('delivery');
   const [payment, setPayment] = useState<'online' | 'cash'>('online');
   const [time, setTime] = useState('12:30 PM');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
   const deliveryFee = method === 'delivery' ? 1200 : 0;
   const total = subtotal + deliveryFee;
 
-  const handlePlaceOrder = () => {
-    // Simulate API call
-    setTimeout(() => {
+  const handlePlaceOrder = async () => {
+    if (cart.length === 0) return;
+    setError(null);
+    setIsSubmitting(true);
+    try {
+      const kitchenId = cart[0].kitchenId;
+      const kitchenIdNumber = parseInt(kitchenId, 10);
+      if (Number.isNaN(kitchenIdNumber)) {
+        throw new Error('Please refresh the app and add items again to use live menus.');
+      }
+      const menus = await menuAPI.getByKitchen(kitchenId);
+      if (!menus || menus.length === 0) {
+        throw new Error('No active menu found for this kitchen');
+      }
+      const menu = menus[0];
+      const pickupTime = new Date();
+      pickupTime.setHours(pickupTime.getHours() + 1);
+
+      const orderResponse = await orderAPI.create({
+        kitchen: kitchenIdNumber,
+        today_menu: menu.id,
+        total_amount: total,
+        pickup_time: pickupTime.toISOString(),
+        delivery_address: method === 'delivery' ? '42 Home Cooked Lane, Victoria Island' : '',
+        is_delivery: method === 'delivery',
+        payment_method: payment === 'online' ? 'ONLINE' : 'CASH',
+        payment_status: false,
+      });
+
+      const orderId = orderResponse?.id;
+      if (orderId) {
+        for (const item of cart) {
+          const menuItemId = parseInt(item.id, 10);
+          if (Number.isNaN(menuItemId)) continue;
+          await orderAPI.addItem(orderId, {
+            menu_item: menuItemId,
+            quantity: item.quantity,
+            price_at_time: item.price,
+          });
+        }
+      }
+
       clearCart();
       navigate('/order-confirmation');
-    }, 1000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Order failed');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -150,10 +196,14 @@ const CheckoutScreen: React.FC = () => {
         {/* Place Order Button */}
         <button 
           onClick={handlePlaceOrder}
-          className="w-full bg-orange-600 hover:bg-orange-700 text-white py-5 rounded-3xl font-black text-lg shadow-2xl shadow-orange-600/40 transition-all active:scale-[0.98]"
+          disabled={isSubmitting}
+          className="w-full bg-orange-600 hover:bg-orange-700 text-white py-5 rounded-3xl font-black text-lg shadow-2xl shadow-orange-600/40 transition-all active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed"
         >
-          Place Order
+          {isSubmitting ? 'Placing Order...' : 'Place Order'}
         </button>
+        {error && (
+          <div className="text-center text-sm text-red-400">{error}</div>
+        )}
       </div>
     </div>
   );

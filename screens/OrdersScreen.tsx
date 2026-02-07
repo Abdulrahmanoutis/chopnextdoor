@@ -1,44 +1,64 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../store/AppContext';
 import { ChevronLeft, Package, Clock, ChevronRight, CheckCircle2, MessageCircle, Star } from 'lucide-react';
+import { orderAPI, OrderApi } from '../services/api';
 
 const OrdersScreen: React.FC = () => {
   const navigate = useNavigate();
   const { kitchens } = useApp();
   const [activeTab, setActiveTab] = useState<'active' | 'past'>('active');
+  const [orders, setOrders] = useState<OrderApi[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const activeOrders = [
-    {
-      id: '1276-CDN',
-      kitchen: kitchens[0],
-      status: 'Preparing', // Ordered, Preparing, Ready, Completed
-      statusStep: 2, // 1: Ordered, 2: Preparing, 3: Ready
-      time: '12:30 PM Today',
-      itemsCount: 2,
-      total: 3300
-    },
-    {
-      id: '1280-CDN',
-      kitchen: kitchens[1],
-      status: 'Ordered',
-      statusStep: 1,
-      time: '1:45 PM Today',
-      itemsCount: 1,
-      total: 5500
-    }
-  ];
+  useEffect(() => {
+    let isMounted = true;
+    const loadOrders = async () => {
+      try {
+        const data = await orderAPI.list();
+        if (!isMounted) return;
+        setOrders(data);
+      } catch (err) {
+        if (!isMounted) return;
+        setError(err instanceof Error ? err.message : 'Failed to load orders');
+      } finally {
+        if (isMounted) setIsLoading(false);
+      }
+    };
+    loadOrders();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
-  const pastOrders = [
-    {
-      id: '0942-CDN',
-      kitchen: kitchens[1],
-      status: 'Delivered',
-      time: 'Yesterday, 6:45 PM',
-      itemsCount: 1,
-      total: 5500
-    }
-  ];
+  const { activeOrders, pastOrders } = useMemo(() => {
+    const isActive = (status: string) => !['COMPLETED', 'CANCELLED'].includes(status);
+    const mapped = orders.map((order) => {
+      const kitchen = kitchens.find(k => k.id === String(order.kitchen));
+      const time = new Date(order.created_at).toLocaleString();
+      const statusStep =
+        order.status === 'PENDING' ? 1 :
+        order.status === 'CONFIRMED' ? 2 :
+        order.status === 'PREPARING' ? 2 :
+        order.status === 'READY' ? 3 : 3;
+
+      return {
+        id: order.order_number,
+        kitchen,
+        status: order.status,
+        statusStep,
+        time,
+        itemsCount: 0,
+        total: order.total_amount
+      };
+    });
+
+    return {
+      activeOrders: mapped.filter(o => isActive(o.status)),
+      pastOrders: mapped.filter(o => !isActive(o.status)),
+    };
+  }, [orders, kitchens]);
 
   const renderStatusTimeline = (step: number) => {
     return (
@@ -90,15 +110,25 @@ const OrdersScreen: React.FC = () => {
       </div>
 
       <div className="p-5 space-y-6">
+        {isLoading && (
+          <div className="py-10 text-center text-zinc-500">Loading orders...</div>
+        )}
+        {error && (
+          <div className="py-4 text-center text-red-400">{error}</div>
+        )}
         {activeTab === 'active' ? (
           <section className="space-y-4">
             {activeOrders.map(order => (
               <div key={order.id} className="bg-zinc-900/30 border border-zinc-800 rounded-[32px] p-6 space-y-5 group hover:border-orange-500/30 transition-all">
                 <div className="flex justify-between items-start">
                   <div className="flex items-center space-x-4">
-                    <img src={order.kitchen.avatar} alt="" className="w-14 h-14 rounded-2xl object-cover border border-zinc-800" />
+                    {order.kitchen ? (
+                      <img src={order.kitchen.avatar} alt="" className="w-14 h-14 rounded-2xl object-cover border border-zinc-800" />
+                    ) : (
+                      <div className="w-14 h-14 rounded-2xl bg-zinc-800 border border-zinc-800" />
+                    )}
                     <div>
-                      <h3 className="font-bold text-sm">{order.kitchen.name}</h3>
+                      <h3 className="font-bold text-sm">{order.kitchen?.name ?? 'Kitchen'}</h3>
                       <p className="text-[10px] text-zinc-600 font-bold uppercase tracking-widest mt-0.5">#{order.id}</p>
                     </div>
                   </div>
@@ -141,9 +171,13 @@ const OrdersScreen: React.FC = () => {
               <div key={order.id} className="bg-[#181818] border border-zinc-800 rounded-[32px] p-6 space-y-4">
                 <div className="flex justify-between items-start">
                   <div className="flex items-center space-x-4">
-                    <img src={order.kitchen.avatar} alt="" className="w-12 h-12 rounded-2xl object-cover opacity-60 grayscale" />
+                    {order.kitchen ? (
+                      <img src={order.kitchen.avatar} alt="" className="w-12 h-12 rounded-2xl object-cover opacity-60 grayscale" />
+                    ) : (
+                      <div className="w-12 h-12 rounded-2xl bg-zinc-800 border border-zinc-800" />
+                    )}
                     <div>
-                      <h3 className="font-bold text-sm text-zinc-300">{order.kitchen.name}</h3>
+                      <h3 className="font-bold text-sm text-zinc-300">{order.kitchen?.name ?? 'Kitchen'}</h3>
                       <p className="text-[10px] text-zinc-600 font-bold mt-0.5">{order.time}</p>
                     </div>
                   </div>

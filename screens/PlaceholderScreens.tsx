@@ -5,7 +5,7 @@ import { User, ChevronRight, MapPin, Settings, LogOut, Repeat } from 'lucide-rea
 
 export const ProfilePlaceholder: React.FC = () => {
   const navigate = useNavigate();
-  const { userRole, setUserRole, setIsAuthenticated } = useApp();
+  const { userRole, setUserRole, logout } = useApp();
   
   return (
     <div className="animate-in fade-in duration-500">
@@ -70,7 +70,7 @@ export const ProfilePlaceholder: React.FC = () => {
           ))}
 
           <button 
-            onClick={() => setIsAuthenticated(false)}
+            onClick={() => logout()}
             className="w-full flex items-center space-x-4 p-5 text-red-500/60 font-bold text-sm hover:text-red-500 transition-colors"
           >
             <LogOut size={18} />

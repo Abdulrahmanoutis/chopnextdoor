@@ -1,7 +1,8 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, ShoppingBag, Clock, CheckCircle2, Phone, MessageCircle, ArrowRight } from 'lucide-react';
+import { orderAPI, OrderApi } from '../../services/api';
 
 type OrderStatus = 'New' | 'Preparing' | 'Ready' | 'Completed';
 
@@ -9,18 +10,79 @@ const OrderManagement: React.FC = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<OrderStatus>('New');
 
-  const [orders, setOrders] = useState([
-    { id: '1277', customer: 'James Obi', items: ['Masa x 2', 'Zobo x 1'], total: 5800, status: 'New', time: '5m ago' },
-    { id: '1278', customer: 'Sarah Ken', items: ['Grilled Chicken x 1'], total: 5500, status: 'New', time: '12m ago' },
-    { id: '1279', customer: 'Femi Ade', items: ['Tuwo x 1', 'Zobo x 2'], total: 4600, status: 'Preparing', time: '20m ago' },
-    { id: '1280', customer: 'Amaka V.', items: ['Masa x 4'], total: 10000, status: 'Ready', time: '45m ago' },
-    { id: '1270', customer: 'David O.', items: ['Grilled Chicken x 2'], total: 11000, status: 'Completed', time: '2h ago' },
-  ]);
+  const [orders, setOrders] = useState<OrderApi[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const filteredOrders = orders.filter(o => o.status === activeTab);
+  useEffect(() => {
+    let isMounted = true;
+    const loadOrders = async () => {
+      try {
+        const data = await orderAPI.listSeller();
+        if (!isMounted) return;
+        setOrders(data);
+      } catch (err) {
+        if (!isMounted) return;
+        setError(err instanceof Error ? err.message : 'Failed to load orders');
+      } finally {
+        if (isMounted) setIsLoading(false);
+      }
+    };
+    loadOrders();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
-  const updateStatus = (id: string, nextStatus: OrderStatus) => {
-    setOrders(prev => prev.map(o => o.id === id ? { ...o, status: nextStatus } : o));
+  const mapStatus = (status: string): OrderStatus => {
+      if (status === 'READY') return 'Ready';
+      if (status === 'PREPARING') return 'Preparing';
+      if (status === 'COMPLETED' || status === 'CANCELLED') return 'Completed';
+      return 'New';
+  };
+
+  const filteredOrders = useMemo(() => {
+    return orders
+      .map(order => ({
+        id: order.id,
+        orderNumber: order.order_number,
+        customer: order.customer_name || `Customer #${order.customer}`,
+        items: (order.items || []).map(i => `${i.menu_item?.name ?? 'Item'} x ${i.quantity}`),
+        total: order.total_amount,
+        status: mapStatus(order.status),
+        time: new Date(order.created_at).toLocaleString(),
+        rawStatus: order.status,
+      }))
+      .filter(o => o.status === activeTab);
+  }, [orders, activeTab]);
+
+  const statusCounts = useMemo(() => {
+    const counts: Record<OrderStatus, number> = {
+      New: 0,
+      Preparing: 0,
+      Ready: 0,
+      Completed: 0,
+    };
+    for (const order of orders) {
+      counts[mapStatus(order.status)] += 1;
+    }
+    return counts;
+  }, [orders]);
+
+  const updateStatus = async (id: number, currentStatus: OrderStatus) => {
+    const statusMap: Record<OrderStatus, string> = {
+      New: 'PREPARING',
+      Preparing: 'READY',
+      Ready: 'COMPLETED',
+      Completed: 'COMPLETED',
+    };
+    const next = statusMap[currentStatus] || 'COMPLETED';
+    try {
+      await orderAPI.updateStatus(id, next);
+      setOrders(prev => prev.map(o => (o.id === id ? { ...o, status: next } : o)));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update status');
+    }
   };
 
   const getNextAction = (status: OrderStatus) => {
@@ -51,14 +113,14 @@ const OrderManagement: React.FC = () => {
           <h1 className="text-xl font-bold">Manage Orders</h1>
         </div>
         <div className="bg-orange-600/10 text-orange-500 text-[10px] font-black px-2 py-1 rounded-lg uppercase">
-          {orders.filter(o => o.status !== 'Completed').length} Active
+          {orders.filter(o => mapStatus(o.status) !== 'Completed').length} Active
         </div>
       </div>
 
       {/* Tabs */}
       <div className="flex border-b border-zinc-900 bg-[#0f0f0f] sticky top-[65px] z-30">
         {(['New', 'Preparing', 'Ready', 'Completed'] as OrderStatus[]).map(tab => {
-          const count = orders.filter(o => o.status === tab).length;
+          const count = statusCounts[tab];
           return (
             <button
               key={tab}
@@ -75,13 +137,19 @@ const OrderManagement: React.FC = () => {
       </div>
 
       <div className="p-5 space-y-4">
-        {filteredOrders.length > 0 ? (
+        {isLoading && (
+          <div className="py-10 text-center text-zinc-500">Loading orders...</div>
+        )}
+        {error && (
+          <div className="py-4 text-center text-red-400">{error}</div>
+        )}
+        {!isLoading && filteredOrders.length > 0 ? (
           filteredOrders.map(order => (
             <div key={order.id} className="bg-[#181818] border border-zinc-800 rounded-[32px] p-5 space-y-4 group">
               <div className="flex justify-between items-start">
                 <div>
                   <div className="flex items-center space-x-2">
-                    <span className="text-lg font-black italic text-white tracking-tighter">#{order.id}</span>
+                    <span className="text-lg font-black italic text-white tracking-tighter">#{order.orderNumber}</span>
                     <span className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest">• {order.time}</span>
                   </div>
                   <h3 className="font-bold text-sm text-zinc-300 mt-1">{order.customer}</h3>
@@ -112,7 +180,7 @@ const OrderManagement: React.FC = () => {
 
               {activeTab !== 'Completed' && (
                 <button 
-                  onClick={() => updateStatus(order.id, getNextStatus(order.status as OrderStatus))}
+                  onClick={() => updateStatus(order.id, order.status as OrderStatus)}
                   className="w-full bg-orange-600 hover:bg-orange-700 text-white py-4 rounded-2xl font-black text-sm flex items-center justify-center space-x-2 transition-all active:scale-95 shadow-lg shadow-orange-600/10"
                 >
                   <span>{getNextAction(order.status as OrderStatus)}</span>
