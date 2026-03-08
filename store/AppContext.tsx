@@ -1,7 +1,7 @@
 
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { Kitchen, CartItem, MenuItem } from '../types';
-import { clearAuthToken, kitchenAPI, KitchenApi } from '../services/api';
+import { clearAuthToken, kitchenAPI, KitchenApi, resolveMediaUrl } from '../services/api';
 import { MOCK_KITCHENS } from '../data/mockData';
 
 interface AppContextType {
@@ -27,16 +27,16 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 const mapApiKitchenToUi = (apiKitchen: KitchenApi, fallback?: Kitchen): Kitchen => {
-  const fallbackId = fallback?.id ?? apiKitchen.id.toString();
+  const fallbackId = apiKitchen.id.toString();
   return {
     id: apiKitchen.id.toString(),
-    name: apiKitchen.name || fallback?.name || 'Kitchen',
-    ownerName: fallback?.ownerName || 'Kitchen',
-    avatar: apiKitchen.logo || fallback?.avatar || `https://picsum.photos/seed/${fallbackId}/200`,
+    name: apiKitchen.name || 'Kitchen',
+    ownerName: apiKitchen.name || 'Seller',
+    avatar: resolveMediaUrl(apiKitchen.logo) || fallback?.avatar || `https://picsum.photos/seed/${fallbackId}/200`,
     coverImage:
-      apiKitchen.cover_image || fallback?.coverImage || `https://picsum.photos/seed/${fallbackId}-cover/800/400`,
-    rating: apiKitchen.rating ?? fallback?.rating ?? 0,
-    tags: fallback?.tags ?? [],
+      resolveMediaUrl(apiKitchen.cover_image) || fallback?.coverImage || `https://picsum.photos/seed/${fallbackId}-cover/800/400`,
+    rating: apiKitchen.rating ?? 0,
+    tags: [],
     isLive: apiKitchen.is_active ?? false,
     isFollowing: apiKitchen.is_following ?? false,
     menu: fallback?.menu ?? [],
@@ -46,11 +46,11 @@ const mapApiKitchenToUi = (apiKitchen: KitchenApi, fallback?: Kitchen): Kitchen 
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [kitchens, setKitchens] = useState<Kitchen[]>(MOCK_KITCHENS);
-  const [followingIds, setFollowingIds] = useState<Set<string>>(new Set(['k1']));
+  const [followingIds, setFollowingIds] = useState<Set<string>>(new Set());
   const [cart, setCart] = useState<CartItem[]>([]);
   
   // Persisted state
-  const [userRole, setUserRole] = useState<'customer' | 'seller'>(
+  const [userRole, setUserRoleState] = useState<'customer' | 'seller'>(
     (localStorage.getItem('userRole') as 'customer' | 'seller') || 'customer'
   );
   const [isAuthenticated, setIsAuthenticated] = useState(
@@ -84,14 +84,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.setItem('isAuthenticated', 'true');
     localStorage.setItem('userRole', role);
     setIsAuthenticated(true);
-    setUserRole(role);
+    setUserRoleState(role);
   };
+
+  const setUserRole = useCallback((role: 'customer' | 'seller') => {
+    localStorage.setItem('userRole', role);
+    setUserRoleState(role);
+  }, []);
 
   const logout = () => {
     localStorage.removeItem('isAuthenticated');
     localStorage.removeItem('userRole');
     clearAuthToken();
     setIsAuthenticated(false);
+    setUserRoleState('customer');
     setCart([]);
   };
 

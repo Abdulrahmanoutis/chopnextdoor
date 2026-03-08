@@ -2,20 +2,33 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, Camera, Plus, Trash2, Clock, Send, Eye } from 'lucide-react';
+import { menuAPI } from '../../services/api';
+import { useApp } from '../../store/AppContext';
+
+type Slide = {
+  id: string;
+  foodName: string;
+  price: string;
+  image: string;
+  imageFile?: File | null;
+};
 
 const CreateMenuScreen: React.FC = () => {
   const navigate = useNavigate();
+  const { kitchens } = useApp();
   const [isActive, setIsActive] = useState(true);
   const [closeTime, setCloseTime] = useState('02:00 PM');
-  const [slides, setSlides] = useState([
-    { id: '1', foodName: 'Today\'s Special Masa', price: '2500', image: 'https://picsum.photos/seed/masa_story/600/1000' }
+  const [slides, setSlides] = useState<Slide[]>([
+    { id: '1', foodName: '', price: '', image: 'https://picsum.photos/seed/masa_story/600/1000' }
   ]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const addSlide = () => {
-    const newSlide = {
+    const newSlide: Slide = {
       id: Date.now().toString(),
-      foodName: 'New Dish Name',
-      price: '0',
+      foodName: '',
+      price: '',
       image: 'https://picsum.photos/seed/newdish/600/1000'
     };
     setSlides([...slides, newSlide]);
@@ -92,6 +105,10 @@ const CreateMenuScreen: React.FC = () => {
                     defaultValue={slide.foodName}
                     placeholder="Dish Name"
                     className="w-full bg-black/40 backdrop-blur-md border border-white/20 rounded-2xl p-4 text-xl font-black italic tracking-tighter text-white placeholder:text-white/40 focus:outline-none focus:border-orange-500"
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setSlides(prev => prev.map(s => s.id === slide.id ? { ...s, foodName: value } : s));
+                    }}
                   />
                   <div className="relative">
                     <span className="absolute left-4 top-1/2 -translate-y-1/2 font-black text-orange-500 text-lg">₦</span>
@@ -100,6 +117,10 @@ const CreateMenuScreen: React.FC = () => {
                       defaultValue={slide.price}
                       placeholder="Price"
                       className="w-full bg-black/40 backdrop-blur-md border border-white/20 rounded-2xl p-4 pl-10 text-lg font-black text-white focus:outline-none focus:border-orange-500"
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        setSlides(prev => prev.map(s => s.id === slide.id ? { ...s, price: value } : s));
+                      }}
                     />
                   </div>
                 </div>
@@ -108,9 +129,21 @@ const CreateMenuScreen: React.FC = () => {
                   <button onClick={() => removeSlide(slide.id)} className="p-3 bg-red-500 text-white rounded-2xl shadow-xl active:scale-90 transition-all">
                     <Trash2 size={20} />
                   </button>
-                  <button className="p-3 bg-white text-black rounded-2xl shadow-xl active:scale-90 transition-all">
+                  <label className="p-3 bg-white text-black rounded-2xl shadow-xl active:scale-90 transition-all cursor-pointer">
                     <Camera size={20} />
-                  </button>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        const preview = URL.createObjectURL(file);
+                        setSlides(prev => prev.map(s => s.id === slide.id ? { ...s, imageFile: file, image: preview } : s));
+                      }}
+                    />
+                  </label>
                 </div>
                 
                 <div className="absolute top-6 left-6 px-4 py-2 bg-black/40 backdrop-blur-md border border-white/20 rounded-full font-black text-[10px] italic">
@@ -132,15 +165,65 @@ const CreateMenuScreen: React.FC = () => {
         {/* Publish Button */}
         <div className="sticky bottom-4 z-50 px-2 pt-10">
           <button 
-            onClick={() => {
-              alert('Menu Published Successfully!');
-              navigate('/seller/dashboard');
+            onClick={async () => {
+              setError(null);
+              setIsSubmitting(true);
+              try {
+                const kitchenId = kitchens[0]?.id;
+                if (!kitchenId) {
+                  throw new Error('No kitchen found for this seller');
+                }
+
+                const now = new Date();
+                const expires = new Date(now);
+                const [time, period] = closeTime.split(' ');
+                const [hourStr, minuteStr] = time.split(':');
+                let hour = parseInt(hourStr, 10);
+                const minute = parseInt(minuteStr, 10);
+                if (period === 'PM' && hour < 12) hour += 12;
+                if (period === 'AM' && hour === 12) hour = 0;
+                expires.setHours(hour, minute, 0, 0);
+                if (expires <= now) {
+                  expires.setDate(expires.getDate() + 1);
+                }
+
+                const menu = await menuAPI.createMenu({
+                  kitchen: parseInt(kitchenId, 10),
+                  expires_at: expires.toISOString(),
+                  is_active: isActive,
+                });
+
+                for (const slide of slides) {
+                  const price = Number(slide.price);
+                  if (!slide.foodName || Number.isNaN(price)) continue;
+                  await menuAPI.addMenuItem({
+                    today_menu: menu.id,
+                    name: slide.foodName,
+                    description: '',
+                    price,
+                    stock: 20,
+                    is_available: true,
+                    image: slide.imageFile || null,
+                  });
+                }
+
+                alert('Menu Published Successfully!');
+                navigate('/seller/dashboard');
+              } catch (err) {
+                setError(err instanceof Error ? err.message : 'Failed to publish menu');
+              } finally {
+                setIsSubmitting(false);
+              }
             }}
-            className="w-full bg-white text-black py-5 rounded-[32px] font-black text-base flex items-center justify-center space-x-3 shadow-2xl hover:bg-orange-500 hover:text-white transition-all active:scale-[0.98]"
+            disabled={isSubmitting}
+            className="w-full bg-white text-black py-5 rounded-[32px] font-black text-base flex items-center justify-center space-x-3 shadow-2xl hover:bg-orange-500 hover:text-white transition-all active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed"
           >
             <Send size={20} />
-            <span>Publish to Followers</span>
+            <span>{isSubmitting ? 'Publishing...' : 'Publish to Followers'}</span>
           </button>
+          {error && (
+            <div className="mt-4 text-center text-sm text-red-400">{error}</div>
+          )}
         </div>
       </div>
     </div>

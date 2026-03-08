@@ -28,9 +28,13 @@ const OrderManagement: React.FC = () => {
         if (isMounted) setIsLoading(false);
       }
     };
+
     loadOrders();
+    const interval = setInterval(loadOrders, 8000);
+
     return () => {
       isMounted = false;
+      clearInterval(interval);
     };
   }, []);
 
@@ -79,7 +83,8 @@ const OrderManagement: React.FC = () => {
     const next = statusMap[currentStatus] || 'COMPLETED';
     try {
       await orderAPI.updateStatus(id, next);
-      setOrders(prev => prev.map(o => (o.id === id ? { ...o, status: next } : o)));
+      const data = await orderAPI.listSeller();
+      setOrders(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update status');
     }

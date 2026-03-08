@@ -26,9 +26,13 @@ const OrdersScreen: React.FC = () => {
         if (isMounted) setIsLoading(false);
       }
     };
+
     loadOrders();
+    const interval = setInterval(loadOrders, 8000);
+
     return () => {
       isMounted = false;
+      clearInterval(interval);
     };
   }, []);
 

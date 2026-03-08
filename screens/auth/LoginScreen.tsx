@@ -88,15 +88,21 @@ const LoginScreen: React.FC = () => {
       )}
 
       <div className="mt-10 text-center">
-        <p className="text-zinc-500 text-sm">
-          Don't have an account?{' '}
-          <button 
-            onClick={() => navigate('/auth/register')}
-            className="text-orange-500 font-bold hover:underline"
+        <p className="text-zinc-500 text-sm mb-3">Don't have an account?</p>
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            onClick={() => navigate('/auth/register/customer')}
+            className="bg-zinc-900 border border-zinc-800 rounded-xl py-3 text-xs font-bold hover:border-orange-500 transition-colors"
           >
-            Register
+            Register as Buyer
           </button>
-        </p>
+          <button
+            onClick={() => navigate('/auth/register/seller')}
+            className="bg-zinc-900 border border-zinc-800 rounded-xl py-3 text-xs font-bold hover:border-orange-500 transition-colors"
+          >
+            Register as Seller
+          </button>
+        </div>
       </div>
     </div>
   );

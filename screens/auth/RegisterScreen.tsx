@@ -1,19 +1,20 @@
 
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useApp } from '../../store/AppContext';
 import { User, Store, Mail, Lock, Phone, ChevronRight, CheckCircle2, ShieldCheck } from 'lucide-react';
 import { authAPI, setAuthToken } from '../../services/api';
 
 const RegisterScreen: React.FC = () => {
   const navigate = useNavigate();
+  const { role: roleParam } = useParams<{ role?: string }>();
   const { login } = useApp();
   const [step, setStep] = useState(1); // 1: Info, 2: OTP
-  const [role, setRole] = useState<'customer' | 'seller'>('customer');
   const [otp, setOtp] = useState(['', '', '', '']);
   const [formData, setFormData] = useState({ email: '', phone: '', password: '' });
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const role: 'customer' | 'seller' = roleParam === 'seller' ? 'seller' : 'customer';
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -106,24 +107,14 @@ const RegisterScreen: React.FC = () => {
     <div className="min-h-screen bg-[#0f0f0f] p-8 flex flex-col justify-center animate-in fade-in duration-500">
       <div className="mb-8">
         <h1 className="text-3xl font-black italic tracking-tighter">JOIN THE COMMUNITY</h1>
-        <p className="text-zinc-500 text-sm mt-2">Start your home-kitchen journey today.</p>
+        <p className="text-zinc-500 text-sm mt-2">Start your {role === 'seller' ? 'seller' : 'buyer'} journey today.</p>
       </div>
 
-      <div className="flex bg-zinc-900/50 p-1 rounded-2xl border border-zinc-800 mb-8">
-        <button 
-          onClick={() => setRole('customer')}
-          className={`flex-1 flex items-center justify-center space-x-2 py-3 rounded-xl text-xs font-bold transition-all ${role === 'customer' ? 'bg-orange-600 text-white shadow-lg' : 'text-zinc-500'}`}
-        >
-          <User size={16} />
-          <span>Customer</span>
-        </button>
-        <button 
-          onClick={() => setRole('seller')}
-          className={`flex-1 flex items-center justify-center space-x-2 py-3 rounded-xl text-xs font-bold transition-all ${role === 'seller' ? 'bg-orange-600 text-white shadow-lg' : 'text-zinc-500'}`}
-        >
-          <Store size={16} />
-          <span>Seller</span>
-        </button>
+      <div className="flex items-center justify-center space-x-2 bg-zinc-900/50 p-3 rounded-2xl border border-zinc-800 mb-8">
+        {role === 'seller' ? <Store size={16} className="text-orange-500" /> : <User size={16} className="text-orange-500" />}
+        <span className="text-xs font-bold uppercase tracking-wider text-zinc-300">
+          Registering as {role === 'seller' ? 'Seller' : 'Buyer'}
+        </span>
       </div>
 
       <form onSubmit={handleRegister} className="space-y-4">
@@ -185,13 +176,7 @@ const RegisterScreen: React.FC = () => {
 
       <div className="mt-10 text-center">
         <p className="text-zinc-500 text-sm">
-          Already have an account?{' '}
-          <button 
-            onClick={() => navigate('/auth/login')}
-            className="text-orange-500 font-bold hover:underline"
-          >
-            Login
-          </button>
+          Already have an account? <button onClick={() => navigate('/auth/login')} className="text-orange-500 font-bold hover:underline">Login</button>
         </p>
       </div>
     </div>

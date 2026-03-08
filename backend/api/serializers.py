@@ -26,10 +26,11 @@ class UserProfileSerializer(serializers.ModelSerializer):
         model = UserProfileAPI
         fields = ["id", "user", "user_type", "phone", "address", "profile_image", "created_at"]
         depth = 1
+        read_only_fields = ["user", "user_type", "created_at"]
 
 
 class KitchenSerializer(serializers.ModelSerializer):
-    follower_count = serializers.IntegerField(read_only=True)
+    follower_count = serializers.SerializerMethodField()
     is_following = serializers.SerializerMethodField()
 
     class Meta:
@@ -39,6 +40,10 @@ class KitchenSerializer(serializers.ModelSerializer):
             "name",
             "description",
             "location",
+            "operating_hours",
+            "bank_details",
+            "gallery_notes",
+            "notification_enabled",
             "cover_image",
             "logo",
             "rating",
@@ -48,6 +53,7 @@ class KitchenSerializer(serializers.ModelSerializer):
             "is_active",
             "created_at",
         ]
+        read_only_fields = ["seller", "created_at", "follower_count", "is_following", "rating"]
 
     def get_is_following(self, obj):
         request = self.context.get("request")
@@ -55,11 +61,14 @@ class KitchenSerializer(serializers.ModelSerializer):
             return obj.followers.filter(user=request.user).exists()
         return False
 
+    def get_follower_count(self, obj):
+        return obj.followers.count()
+
 
 class MenuItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = MenuItemAPI
-        fields = ["id", "name", "description", "price", "image", "stock", "is_available"]
+        fields = ["id", "today_menu", "name", "description", "price", "image", "stock", "is_available"]
 
 
 class TodayMenuSerializer(serializers.ModelSerializer):

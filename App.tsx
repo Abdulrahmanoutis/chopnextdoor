@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { HashRouter as Router, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { AppProvider, useApp } from './store/AppContext';
 import HomeScreen from './screens/HomeScreen';
 import StoryViewer from './screens/StoryViewer';
@@ -13,6 +13,7 @@ import FollowingScreen from './screens/FollowingScreen';
 import SearchScreen from './screens/SearchScreen';
 import LoginScreen from './screens/auth/LoginScreen';
 import RegisterScreen from './screens/auth/RegisterScreen';
+import BecomeSellerScreen from './screens/BecomeSellerScreen';
 import SellerDashboard from './screens/seller/SellerDashboard';
 import CreateMenuScreen from './screens/seller/CreateMenuScreen';
 import MenuManagement from './screens/seller/MenuManagement';
@@ -24,12 +25,32 @@ import BottomNav from './components/BottomNav';
 
 const AppContent: React.FC = () => {
   const { isAuthenticated, userRole } = useApp();
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  React.useEffect(() => {
+    if (!isAuthenticated) return;
+
+    if (userRole === 'customer' && location.pathname.startsWith('/seller')) {
+      navigate('/');
+      return;
+    }
+
+    if (userRole === 'seller') {
+      const allowedSellerPaths = ['/', '/profile'];
+      const isSellerPath = location.pathname.startsWith('/seller');
+      if (!isSellerPath && !allowedSellerPaths.includes(location.pathname)) {
+        navigate('/seller/dashboard');
+      }
+    }
+  }, [isAuthenticated, userRole, location.pathname, navigate]);
 
   if (!isAuthenticated) {
     return (
       <Routes>
         <Route path="/auth/login" element={<LoginScreen />} />
-        <Route path="/auth/register" element={<RegisterScreen />} />
+        <Route path="/auth/register/:role" element={<RegisterScreen />} />
+        <Route path="/auth/register" element={<Navigate to="/auth/register/customer" replace />} />
         <Route path="*" element={<Navigate to="/auth/login" />} />
       </Routes>
     );
@@ -51,6 +72,7 @@ const AppContent: React.FC = () => {
             <Route path="/search" element={<SearchScreen />} />
             <Route path="/following" element={<FollowingScreen />} />
             <Route path="/profile" element={<ProfilePlaceholder />} />
+            <Route path="/become-seller" element={<BecomeSellerScreen />} />
           </>
         ) : (
           /* Seller Routes */

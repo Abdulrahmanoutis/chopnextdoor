@@ -1,11 +1,11 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../store/AppContext';
-import { User, ChevronRight, MapPin, Settings, LogOut, Repeat } from 'lucide-react';
+import { User, ChevronRight, MapPin, Settings, LogOut, Store } from 'lucide-react';
 
 export const ProfilePlaceholder: React.FC = () => {
   const navigate = useNavigate();
-  const { userRole, setUserRole, logout } = useApp();
+  const { userRole, logout } = useApp();
   
   return (
     <div className="animate-in fade-in duration-500">
@@ -40,15 +40,15 @@ export const ProfilePlaceholder: React.FC = () => {
         </div>
 
         <div className="space-y-3">
-          <button 
-            onClick={() => setUserRole(userRole === 'customer' ? 'seller' : 'customer')}
+          <button
+            onClick={() => navigate('/become-seller')}
             className="w-full flex items-center justify-between p-5 bg-orange-600/10 border border-orange-600/30 rounded-2xl hover:bg-orange-600/20 transition-all group"
           >
             <div className="flex items-center space-x-4">
               <div className="p-2 bg-orange-600 text-white rounded-xl">
-                <Repeat size={18} />
+                <Store size={18} />
               </div>
-              <span className="text-sm font-bold">Switch to {userRole === 'customer' ? 'Seller' : 'Customer'} Mode</span>
+              <span className="text-sm font-bold">Become a Seller</span>
             </div>
             <ChevronRight size={18} className="text-orange-500" />
           </button>

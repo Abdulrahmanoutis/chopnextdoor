@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useApp } from '../store/AppContext';
 import { ChevronLeft, Star, Clock, MapPin, Check, Plus, MessageCircle, ShoppingCart } from 'lucide-react';
-import { menuAPI, MenuItemApi } from '../services/api';
+import { menuAPI, MenuItemApi, TodayMenuApi, resolveMediaUrl } from '../services/api';
 import { MenuItem } from '../types';
+import { getRemainingTime } from '../utils/time';
 
 const KitchenProfile: React.FC = () => {
   const { id } = useParams();
@@ -12,6 +13,8 @@ const KitchenProfile: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'menu' | 'reviews' | 'about'>('menu');
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [menuError, setMenuError] = useState<string | null>(null);
+  const [todayMenu, setTodayMenu] = useState<TodayMenuApi | null>(null);
+  const [timeRemaining, setTimeRemaining] = useState<string>('EXPIRED');
 
   const kitchen = kitchens.find(k => k.id === id);
 
@@ -22,15 +25,17 @@ const KitchenProfile: React.FC = () => {
       setMenuError(null);
       try {
         const menus = await menuAPI.getByKitchen(id);
+        const activeMenu = menus?.[0] ?? null;
         const items = menus?.[0]?.items ?? [];
         const mapped = items.map((item: MenuItemApi): MenuItem => ({
           id: item.id.toString(),
           name: item.name,
           price: Number(item.price),
           description: item.description || '',
-          image: item.image || `https://picsum.photos/seed/menu-${item.id}/400`,
+          image: resolveMediaUrl(item.image) || `https://picsum.photos/seed/menu-${item.id}/400`,
         }));
         if (!isMounted) return;
+        setTodayMenu(activeMenu);
         setMenuItems(mapped);
       } catch (err) {
         if (!isMounted) return;
@@ -42,6 +47,20 @@ const KitchenProfile: React.FC = () => {
       isMounted = false;
     };
   }, [id]);
+
+  useEffect(() => {
+    if (!todayMenu?.expires_at) {
+      setTimeRemaining('EXPIRED');
+      return;
+    }
+
+    setTimeRemaining(getRemainingTime(todayMenu.expires_at));
+    const interval = setInterval(() => {
+      setTimeRemaining(getRemainingTime(todayMenu.expires_at));
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [todayMenu?.expires_at]);
 
   if (!kitchen) return null;
 
@@ -150,7 +169,7 @@ const KitchenProfile: React.FC = () => {
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="font-black text-orange-500 italic uppercase tracking-wider text-xs">Today's Special</h3>
                   <div className="bg-orange-600 text-[10px] font-black px-2 py-1 rounded-lg animate-pulse">
-                    ENDS IN 02:45:12
+                    ENDS IN {timeRemaining}
                   </div>
                 </div>
                 <div className="flex space-x-4">

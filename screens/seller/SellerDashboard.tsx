@@ -1,32 +1,38 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { useApp } from '../../store/AppContext';
 import { useNavigate } from 'react-router-dom';
-import { ShoppingBag, TrendingUp, Users, PlusCircle, List, ArrowUpRight, ChevronRight, Bell } from 'lucide-react';
-import { orderAPI, OrderApi } from '../../services/api';
+import { ShoppingBag, TrendingUp, Users, PlusCircle, List, ChevronRight, Bell } from 'lucide-react';
+import { orderAPI, OrderApi, kitchenAPI, KitchenApi, resolveMediaUrl } from '../../services/api';
 
 const SellerDashboard: React.FC = () => {
   const navigate = useNavigate();
-  const { kitchens } = useApp();
-  const sellerData = kitchens[0]; // Assuming first kitchen is the logged-in seller for demo
+  const [kitchen, setKitchen] = useState<KitchenApi | null>(null);
   const [orders, setOrders] = useState<OrderApi[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let isMounted = true;
-    const loadOrders = async () => {
+    const loadData = async () => {
       try {
-        const data = await orderAPI.listSeller();
+        const [ordersData, kitchenData] = await Promise.all([
+          orderAPI.listSeller(),
+          kitchenAPI.getMine(),
+        ]);
         if (!isMounted) return;
-        setOrders(data);
+        setOrders(ordersData);
+        setKitchen(kitchenData);
       } catch (err) {
         if (!isMounted) return;
-        setError(err instanceof Error ? err.message : 'Failed to load seller orders');
+        setError(err instanceof Error ? err.message : 'Failed to load seller data');
       }
     };
-    loadOrders();
+
+    loadData();
+    const interval = setInterval(loadData, 8000);
+
     return () => {
       isMounted = false;
+      clearInterval(interval);
     };
   }, []);
 
@@ -49,10 +55,10 @@ const SellerDashboard: React.FC = () => {
       <div className="flex justify-between items-center">
         <div className="flex items-center space-x-4">
           <div className="w-14 h-14 rounded-2xl border-2 border-orange-600/30 overflow-hidden shadow-xl">
-            <img src={sellerData.avatar} alt="" className="w-full h-full object-cover" />
+            <img src={resolveMediaUrl(kitchen?.logo) || 'https://picsum.photos/seed/seller-default/200'} alt="" className="w-full h-full object-cover" />
           </div>
           <div>
-            <h1 className="text-xl font-black">Hello, {sellerData.ownerName}! 👋</h1>
+            <h1 className="text-xl font-black">Hello, {kitchen?.name || 'Seller'}</h1>
             <p className="text-zinc-500 text-xs font-bold uppercase tracking-widest">Kitchen Admin</p>
           </div>
         </div>
@@ -70,9 +76,6 @@ const SellerDashboard: React.FC = () => {
             <div className="p-2 bg-orange-600/10 rounded-xl text-orange-500">
               <ShoppingBag size={18} />
             </div>
-            <span className="text-[10px] font-black text-green-500 flex items-center">
-              +12% <ArrowUpRight size={10} />
-            </span>
           </div>
           <div>
             <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Today's Orders</span>
@@ -131,20 +134,17 @@ const SellerDashboard: React.FC = () => {
       {/* Followers Card */}
       <div className="bg-[#181818] border border-zinc-800 p-6 rounded-[32px] flex items-center justify-between">
         <div className="flex items-center space-x-4">
-          <div className="flex -space-x-3">
-            {[1, 2, 3].map(i => (
-              <div key={i} className="w-10 h-10 rounded-full border-2 border-[#181818] overflow-hidden">
-                <img src={`https://picsum.photos/seed/fan${i}/100`} alt="" className="w-full h-full object-cover" />
-              </div>
-            ))}
-            <div className="w-10 h-10 rounded-full border-2 border-[#181818] bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-zinc-500">+1.2k</div>
+          <div className="w-12 h-12 rounded-2xl border-2 border-[#181818] bg-zinc-800 flex items-center justify-center">
+            <Users size={18} className="text-zinc-400" />
           </div>
           <div>
             <h3 className="font-bold text-sm">Followers</h3>
-            <p className="text-[10px] text-green-500 font-bold uppercase tracking-wider">Growing every day</p>
+            <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">
+              {kitchen?.follower_count ?? 0} total followers
+            </p>
           </div>
         </div>
-        <button className="bg-zinc-800 px-4 py-2 rounded-xl text-xs font-bold text-white">View All</button>
+        <button onClick={() => navigate('/seller/followers')} className="bg-zinc-800 px-4 py-2 rounded-xl text-xs font-bold text-white">View All</button>
       </div>
 
       {/* Recent Orders List */}

@@ -1,4 +1,5 @@
-const API_BASE_URL = "http://localhost:8000/api/";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000/api/";
+const API_ORIGIN = API_BASE_URL.replace(/\/api\/?$/, "");
 
 type LoginResponse = {
   token: string;
@@ -50,7 +51,10 @@ const formatErrorMessage = (data: unknown): string => {
 const apiFetch = async <T>(path: string, init?: RequestInit): Promise<T> => {
   const token = getAuthToken();
   const headers = new Headers(init?.headers);
-  headers.set("Content-Type", "application/json");
+  const isFormData = init?.body instanceof FormData;
+  if (!isFormData) {
+    headers.set("Content-Type", "application/json");
+  }
   if (token) headers.set("Authorization", `Token ${token}`);
 
   const response = await fetch(`${API_BASE_URL}${path}`, {
@@ -72,6 +76,13 @@ const apiFetch = async <T>(path: string, init?: RequestInit): Promise<T> => {
   return response.json();
 };
 
+export const resolveMediaUrl = (value: string | null | undefined): string | null => {
+  if (!value) return null;
+  if (value.startsWith("http://") || value.startsWith("https://")) return value;
+  if (value.startsWith("/")) return `${API_ORIGIN}${value}`;
+  return `${API_ORIGIN}/${value}`;
+};
+
 export const authAPI = {
   login: (username: string, password: string) =>
     apiFetch<LoginResponse>("api-token-auth/", {
@@ -90,6 +101,10 @@ export type KitchenApi = {
   name: string;
   description: string;
   location: string;
+  operating_hours: string;
+  bank_details: string;
+  gallery_notes: string;
+  notification_enabled: boolean;
   cover_image: string | null;
   logo: string | null;
   rating: number | null;
@@ -105,6 +120,39 @@ type FollowResponse = {
 
 export const kitchenAPI = {
   getAll: () => apiFetch<KitchenApi[]>("kitchens/"),
+  getMine: () => apiFetch<KitchenApi>("kitchens/mine/"),
+  updateMine: (
+    data: Partial<
+      Pick<
+        KitchenApi,
+        "name" | "description" | "location" | "is_active" | "operating_hours" | "bank_details" | "gallery_notes" | "notification_enabled"
+      >
+    > & {
+      cover_image?: File | null;
+      logo?: File | null;
+    }
+  ) => {
+    const hasFile = data.cover_image instanceof File || data.logo instanceof File;
+    if (hasFile) {
+      const formData = new FormData();
+      Object.entries(data).forEach(([key, value]) => {
+        if (value === undefined || value === null) return;
+        if (value instanceof File) {
+          formData.append(key, value);
+          return;
+        }
+        formData.append(key, String(value));
+      });
+      return apiFetch<KitchenApi>("kitchens/mine/", {
+        method: "PATCH",
+        body: formData,
+      });
+    }
+    return apiFetch<KitchenApi>("kitchens/mine/", {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    });
+  },
   follow: (id: string) =>
     apiFetch<FollowResponse>(`kitchens/${id}/follow/`, { method: "POST" }),
 };
@@ -114,6 +162,7 @@ export type TodayMenuApi = {
   kitchen: number;
   is_active: boolean;
   expires_at: string;
+  time_remaining?: string;
   items: MenuItemApi[];
 };
 
@@ -130,6 +179,34 @@ export type MenuItemApi = {
 export const menuAPI = {
   getByKitchen: (kitchenId: string) =>
     apiFetch<TodayMenuApi[]>(`menus/?kitchen_id=${kitchenId}`),
+  createMenu: (data: { kitchen: number; expires_at: string; is_active: boolean }) =>
+    apiFetch<TodayMenuApi>("menus/", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  addMenuItem: (data: {
+    today_menu: number;
+    name: string;
+    description?: string;
+    price: number;
+    stock: number;
+    is_available: boolean;
+    image?: File | null;
+  }) =>
+    (() => {
+      const formData = new FormData();
+      formData.append("today_menu", String(data.today_menu));
+      formData.append("name", data.name);
+      formData.append("description", data.description || "");
+      formData.append("price", String(data.price));
+      formData.append("stock", String(data.stock));
+      formData.append("is_available", String(data.is_available));
+      if (data.image) formData.append("image", data.image);
+      return apiFetch<MenuItemApi>("menu-items/", {
+        method: "POST",
+        body: formData,
+      });
+    })(),
 };
 
 type CreateOrderRequest = {

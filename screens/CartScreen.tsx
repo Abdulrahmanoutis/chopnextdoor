@@ -1,13 +1,53 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../store/AppContext';
 import { ChevronLeft, Trash2, Plus, Minus, AlertCircle, Clock } from 'lucide-react';
+import { menuAPI, TodayMenuApi } from '../services/api';
+import { getRemainingTime } from '../utils/time';
 
 const CartScreen: React.FC = () => {
   const navigate = useNavigate();
   const { cart, updateCartQuantity, removeFromCart } = useApp();
+  const [todayMenu, setTodayMenu] = useState<TodayMenuApi | null>(null);
+  const [timeRemaining, setTimeRemaining] = useState<string>('EXPIRED');
 
   const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  const activeKitchenId = cart[0]?.kitchenId;
+
+  useEffect(() => {
+    let isMounted = true;
+    const loadMenu = async () => {
+      if (!activeKitchenId) {
+        setTodayMenu(null);
+        return;
+      }
+      try {
+        const menus = await menuAPI.getByKitchen(activeKitchenId);
+        if (!isMounted) return;
+        setTodayMenu(menus?.[0] ?? null);
+      } catch {
+        if (!isMounted) return;
+        setTodayMenu(null);
+      }
+    };
+
+    loadMenu();
+    return () => {
+      isMounted = false;
+    };
+  }, [activeKitchenId]);
+
+  useEffect(() => {
+    if (!todayMenu?.expires_at) {
+      setTimeRemaining('EXPIRED');
+      return;
+    }
+    setTimeRemaining(getRemainingTime(todayMenu.expires_at));
+    const interval = setInterval(() => {
+      setTimeRemaining(getRemainingTime(todayMenu.expires_at));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [todayMenu?.expires_at]);
 
   if (cart.length === 0) {
     return (
@@ -45,7 +85,7 @@ const CartScreen: React.FC = () => {
           <Clock size={20} className="animate-pulse" />
           <span className="text-sm font-bold uppercase tracking-wider italic">Pre-order ends in</span>
         </div>
-        <div className="text-lg font-black font-mono text-white">02:15:08</div>
+        <div className="text-lg font-black font-mono text-white">{timeRemaining}</div>
       </div>
 
       {/* Cart Items List */}

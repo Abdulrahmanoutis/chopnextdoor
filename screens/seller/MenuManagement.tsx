@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, Plus, Edit2, Trash2, Search, Filter } from 'lucide-react';
-import { menuAPI, MenuItemApi } from '../../services/api';
+import { menuAPI, MenuItemApi, resolveMediaUrl } from '../../services/api';
 import { MenuItem } from '../../types';
 import { useApp } from '../../store/AppContext';
 
@@ -28,7 +28,7 @@ const MenuManagement: React.FC = () => {
           name: item.name,
           price: Number(item.price),
           description: item.description || '',
-          image: item.image || `https://picsum.photos/seed/menu-${item.id}/400`,
+          image: resolveMediaUrl(item.image) || `https://picsum.photos/seed/menu-${item.id}/400`,
         }));
         if (!isMounted) return;
         setMenuItems(mapped);
