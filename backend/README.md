@@ -31,7 +31,7 @@ python manage.py runserver
 
 Notes:
 - The project uses SQLite by default (`db.sqlite3`).
-- `shopnextdoor_backend/settings.py` reads `DJANGO_SECRET_KEY`, `DJANGO_DEBUG`, and `DJANGO_ALLOWED_HOSTS` from the environment.
+- `chopnextdoor_backend/settings.py` reads `DJANGO_SECRET_KEY`, `DJANGO_DEBUG`, and `DJANGO_ALLOWED_HOSTS` from the environment.
 
 Production readiness checklist:
 

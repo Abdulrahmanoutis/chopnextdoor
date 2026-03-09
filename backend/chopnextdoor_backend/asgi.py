@@ -1,5 +1,5 @@
 """
-ASGI config for shopnextdoor_backend project.
+ASGI config for chopnextdoor_backend project.
 
 It exposes the ASGI callable as a module-level variable named ``application``.
 
@@ -11,6 +11,6 @@ import os
 
 from django.core.asgi import get_asgi_application
 
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "shopnextdoor_backend.settings")
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "chopnextdoor_backend.settings")
 
 application = get_asgi_application()

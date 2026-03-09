@@ -2,7 +2,7 @@ import os
 import random
 from datetime import timedelta
 
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "shopnextdoor_backend.settings")
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "chopnextdoor_backend.settings")
 import django
 django.setup()
 
