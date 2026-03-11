@@ -1,7 +1,7 @@
 
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { Kitchen, CartItem, MenuItem } from '../types';
-import { clearAuthToken, kitchenAPI, KitchenApi, resolveMediaUrl } from '../services/api';
+import { clearAuthToken, kitchenAPI, KitchenApi, menuAPI, MenuItemApi, resolveMediaUrl } from '../services/api';
 import { MOCK_KITCHENS } from '../data/mockData';
 
 interface AppContextType {
@@ -44,6 +44,14 @@ const mapApiKitchenToUi = (apiKitchen: KitchenApi, fallback?: Kitchen): Kitchen 
   };
 };
 
+const mapApiMenuItemToUi = (item: MenuItemApi): MenuItem => ({
+  id: item.id.toString(),
+  name: item.name,
+  price: Number(item.price),
+  description: item.description || '',
+  image: resolveMediaUrl(item.image) || `https://picsum.photos/seed/menu-${item.id}/400`,
+});
+
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [kitchens, setKitchens] = useState<Kitchen[]>(MOCK_KITCHENS);
   const [followingIds, setFollowingIds] = useState<Set<string>>(new Set());
@@ -65,7 +73,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const loadKitchens = async () => {
       try {
         const apiKitchens = await kitchenAPI.getAll();
-        const mapped = apiKitchens.map((k, idx) => mapApiKitchenToUi(k, MOCK_KITCHENS[idx]));
+        const mapped = await Promise.all(
+          apiKitchens.map(async (k, idx) => {
+            const kitchen = mapApiKitchenToUi(k, MOCK_KITCHENS[idx]);
+            try {
+              const menus = await menuAPI.getByKitchen(k.id.toString());
+              const activeMenuItems = menus?.[0]?.items?.map(mapApiMenuItemToUi) ?? [];
+              return { ...kitchen, menu: activeMenuItems };
+            } catch {
+              return kitchen;
+            }
+          })
+        );
         if (!isMounted) return;
         setKitchens(mapped);
         setFollowingIds(new Set(mapped.filter(k => k.isFollowing).map(k => k.id)));

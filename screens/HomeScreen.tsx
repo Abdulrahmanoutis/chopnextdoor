@@ -99,7 +99,11 @@ const HomeScreen: React.FC = () => {
                     <h3 className="font-bold text-sm">{kitchen.name}</h3>
                     {kitchen.isLive && <span className="text-[10px] bg-orange-500/10 text-orange-500 font-bold px-1.5 py-0.5 rounded uppercase">Live</span>}
                   </div>
-                  <p className="text-xs text-zinc-500 mt-1">{kitchen.tags.join(' • ')}</p>
+                  <p className="text-xs text-zinc-500 mt-1">
+                    {kitchen.menu.length > 0
+                      ? kitchen.menu.slice(0, 2).map(item => item.name).join(' • ')
+                      : kitchen.tags.join(' • ') || 'Fresh dishes daily'}
+                  </p>
                 </div>
               </div>
               <button className="bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold px-4 py-2 rounded-xl shadow-lg shadow-orange-600/20 transition-all">
@@ -132,7 +136,11 @@ const HomeScreen: React.FC = () => {
                 <div className="flex justify-between items-start mb-2">
                   <div>
                     <h3 className="font-bold text-base">{kitchen.name}</h3>
-                    <p className="text-xs text-zinc-500 mt-0.5">Specializing in {kitchen.tags[0]}</p>
+                    <p className="text-xs text-zinc-500 mt-0.5">
+                      {kitchen.menu[0]
+                        ? `Featured: ${kitchen.menu[0].name} • ₦${kitchen.menu[0].price.toLocaleString()}`
+                        : `Specializing in ${kitchen.tags[0] || 'Home-made meals'}`}
+                    </p>
                   </div>
                   <div className="flex items-center space-x-1 bg-zinc-800 px-2 py-1 rounded-lg">
                     <Star size={12} className="text-orange-500 fill-orange-500" />
