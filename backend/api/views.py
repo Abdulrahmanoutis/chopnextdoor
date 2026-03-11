@@ -83,6 +83,18 @@ class UserProfileViewSet(viewsets.ModelViewSet):
             user=user, user_type=api_user_type, phone=request.data.get("phone", "")
         )
 
+        # Ensure seller accounts immediately have a kitchen profile.
+        if core_profile.user_type == "seller":
+            KitchenAPI.objects.get_or_create(
+                seller=core_profile,
+                defaults={
+                    "name": f"{user.username} Kitchen",
+                    "description": "",
+                    "location": "",
+                    "is_active": True,
+                },
+            )
+
         return Response({"message": "User created successfully", "id": api_profile.id}, status=status.HTTP_201_CREATED)
 
     @action(detail=False, methods=["post"])
@@ -121,7 +133,15 @@ class KitchenViewSet(viewsets.ModelViewSet):
 
         kitchen = KitchenAPI.objects.filter(seller=core_profile).first()
         if not kitchen:
-            return Response({"error": "Kitchen not found"}, status=status.HTTP_404_NOT_FOUND)
+            if core_profile.user_type != "seller":
+                return Response({"error": "Kitchen not found"}, status=status.HTTP_404_NOT_FOUND)
+            kitchen = KitchenAPI.objects.create(
+                seller=core_profile,
+                name=f"{request.user.username} Kitchen",
+                description="",
+                location="",
+                is_active=True,
+            )
 
         if request.method.lower() == "patch":
             serializer = self.get_serializer(kitchen, data=request.data, partial=True, context={"request": request})

@@ -2,8 +2,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, Camera, Plus, Trash2, Clock, Send, Eye } from 'lucide-react';
-import { menuAPI } from '../../services/api';
-import { useApp } from '../../store/AppContext';
+import { kitchenAPI, menuAPI } from '../../services/api';
 
 type Slide = {
   id: string;
@@ -15,7 +14,6 @@ type Slide = {
 
 const CreateMenuScreen: React.FC = () => {
   const navigate = useNavigate();
-  const { kitchens } = useApp();
   const [isActive, setIsActive] = useState(true);
   const [closeTime, setCloseTime] = useState('02:00 PM');
   const [slides, setSlides] = useState<Slide[]>([
@@ -169,10 +167,8 @@ const CreateMenuScreen: React.FC = () => {
               setError(null);
               setIsSubmitting(true);
               try {
-                const kitchenId = kitchens[0]?.id;
-                if (!kitchenId) {
-                  throw new Error('No kitchen found for this seller');
-                }
+                const myKitchen = await kitchenAPI.getMine();
+                const kitchenId = myKitchen.id;
 
                 const now = new Date();
                 const expires = new Date(now);
@@ -188,7 +184,7 @@ const CreateMenuScreen: React.FC = () => {
                 }
 
                 const menu = await menuAPI.createMenu({
-                  kitchen: parseInt(kitchenId, 10),
+                  kitchen: kitchenId,
                   expires_at: expires.toISOString(),
                   is_active: isActive,
                 });

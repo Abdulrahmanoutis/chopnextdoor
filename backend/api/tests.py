@@ -6,7 +6,7 @@ from django.utils import timezone
 from rest_framework.test import APITestCase
 
 from core.models import UserProfile
-from api.models import KitchenAPI, TodayMenuAPI, OrderAPI
+from api.models import KitchenAPI, TodayMenuAPI, OrderAPI, UserProfileAPI
 from api.serializers import TodayMenuSerializer
 
 
@@ -139,3 +139,34 @@ class SellerPermissionTests(APITestCase):
         self.assertEqual(response.status_code, 200)
         self.order.refresh_from_db()
         self.assertEqual(self.order.status, "CONFIRMED")
+
+
+class SellerKitchenBootstrapTests(APITestCase):
+    def test_register_seller_creates_default_kitchen(self):
+        response = self.client.post(
+            reverse("register"),
+            {
+                "username": "freshseller",
+                "email": "freshseller@example.com",
+                "password": "pass12345",
+                "user_type": "SELLER",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201)
+        user = User.objects.get(username="freshseller")
+        core_profile = UserProfile.objects.get(user=user)
+        self.assertEqual(core_profile.user_type, "seller")
+        kitchen = KitchenAPI.objects.filter(seller=core_profile).first()
+        self.assertIsNotNone(kitchen)
+        self.assertIn("Kitchen", kitchen.name)
+
+    def test_seller_mine_creates_kitchen_if_missing(self):
+        user = User.objects.create_user(username="seller_nokitchen", password="pass12345")
+        UserProfile.objects.create(user=user, user_type="seller")
+        UserProfileAPI.objects.create(user=user, user_type="SELLER")
+
+        self.client.force_authenticate(user=user)
+        response = self.client.get(reverse("kitchenapi-mine"))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["name"], "seller_nokitchen Kitchen")

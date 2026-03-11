@@ -2,13 +2,11 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, Plus, Edit2, Trash2, Search, Filter } from 'lucide-react';
-import { menuAPI, MenuItemApi, resolveMediaUrl } from '../../services/api';
+import { kitchenAPI, menuAPI, MenuItemApi, resolveMediaUrl } from '../../services/api';
 import { MenuItem } from '../../types';
-import { useApp } from '../../store/AppContext';
 
 const MenuManagement: React.FC = () => {
   const navigate = useNavigate();
-  const { kitchens } = useApp();
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -17,11 +15,8 @@ const MenuManagement: React.FC = () => {
     let isMounted = true;
     const loadMenu = async () => {
       try {
-        const kitchenId = kitchens[0]?.id;
-        if (!kitchenId) {
-          throw new Error('No kitchen found for this seller');
-        }
-        const menus = await menuAPI.getByKitchen(kitchenId);
+        const myKitchen = await kitchenAPI.getMine();
+        const menus = await menuAPI.getByKitchen(myKitchen.id.toString());
         const items = menus?.[0]?.items ?? [];
         const mapped = items.map((item: MenuItemApi): MenuItem => ({
           id: item.id.toString(),
@@ -43,7 +38,7 @@ const MenuManagement: React.FC = () => {
     return () => {
       isMounted = false;
     };
-  }, [kitchens]);
+  }, []);
 
   return (
     <div className="animate-in fade-in duration-500 pb-24">
